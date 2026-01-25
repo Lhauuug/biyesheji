@@ -31,5 +31,3 @@ gen/
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
-src/main/java/com/example/demo/utils/SmsUtils.java
-/SpringBoot/src/main/java/com/example/demo/utils/SmsUtils.java
