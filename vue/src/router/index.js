@@ -5,13 +5,13 @@ const routes = [
   {
     path: '/',
     name: 'Layout',
-    redirect:"user",
+    redirect: "user",
     component: Layout,
-    children:[
+    children: [
       {
-        path:'user',
-        name:'user',
-        component:() => import("@/views/User")
+        path: 'user',
+        name: 'user',
+        component: () => import("@/views/User")
       },
       {
         path: 'book',
@@ -34,15 +34,24 @@ const routes = [
         component: () => import("@/views/LendRecord")
       },
       {
-        path:'dashboard',
-        name:'Dashboard',
-        component:() => import("@/views/Dashboard")
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import("@/views/Dashboard")
       },
       {
         path: 'bookwithuser',
         name: 'BookWithUser',
         component: () => import("@/views/BookWithUser")
+      },
+      // 👇========== 改动在这里 ==========👇
+      // 我们把 Monitor 搬到了 Layout 的 children 里面
+      {
+        path: 'monitor',
+        name: 'Monitor',
+        component: () => import('../views/Monitor.vue'),
+        meta: { title: '设备监控' }
       }
+      // 👆===============================👆
     ]
   },
   {
@@ -59,9 +68,7 @@ const routes = [
     path: '/forget',
     name: 'Forget',
     component: () => import("@/views/Forget")
-  },
-
-
+  }
 ]
 
 const router = createRouter({

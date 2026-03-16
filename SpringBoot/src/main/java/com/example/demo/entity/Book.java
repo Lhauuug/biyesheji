@@ -25,6 +25,8 @@ public class Book {
     @JsonFormat(locale="zh",timezone="GMT+8", pattern="yyyy-MM-dd")
     private Date createTime;
     private String status;
+    /** 新增字段：对应数据库的 rfid_code */
+    private String rfidCode;
 
 
 }

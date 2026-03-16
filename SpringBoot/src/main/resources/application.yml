@@ -1,0 +1,49 @@
+server:
+  port: 9090
+
+spring:
+  # 1. 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/library?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: "123456" # 如果是纯数字密码，建议加上双引号
+
+  # 2. Redis 配置
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    jedis:
+      pool:
+        min-idle: 10
+        max-idle: 20
+        max-active: 50
+
+  # 3. 邮件配置 (刚才添加的功能)
+  mail:
+    host: smtp.qq.com
+    username: 2608477279@qq.com    # 🔴 改成你的QQ邮箱
+    password: ijarjkxclunrebgb # 🔴 改成你的授权码
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+# MyBatis Plus 配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# OneNet 配置 (自定义)
+onenet:
+  # 产品ID
+  product-id: 7QSeidAe52
+  # 设备名称
+  device-name: test_A204
+  # AccessKey
+  access-key: o3dd3xkfb8ud6U3vw4t3B0nVHVEJe8Fri5NfdfnLY1s=

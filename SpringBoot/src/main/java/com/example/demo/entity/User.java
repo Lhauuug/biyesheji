@@ -25,5 +25,9 @@ public class User {
     @TableField(exist = false)
     private String confirm;
     private String alow;   //是否允许借阅的指标
+    /** 新增字段：对应数据库的 card_uid */
+    private String cardUid;
+    // 账号状态：1正常，0冻结
+    private Integer status;
 
 }

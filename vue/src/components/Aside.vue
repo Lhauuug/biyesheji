@@ -71,6 +71,10 @@
       <el-icon><grid /></el-icon>
       <span>借阅状态</span>
     </el-menu-item>
+    <el-menu-item index="/monitor">
+      <el-icon><Monitor /></el-icon>
+      <span>设备监控大屏</span>
+    </el-menu-item>
   </el-menu>
 
 </div>
