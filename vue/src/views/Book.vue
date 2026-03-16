@@ -1,6 +1,42 @@
 <template>
   <div class="home" style ="padding: 10px">
 
+    <el-row :gutter="20" style="display: flex; align-items: stretch; min-height: calc(100vh - 130px);">
+      <el-col :span="4">
+        <el-card shadow="hover" style="height: 100%; border-radius: 8px;">
+          <div style="font-size: 16px; font-weight: bold; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ebeef5; color: #409EFF; display: flex; align-items: center;">
+            <span style="font-size: 20px; margin-right: 8px;">📚</span>
+            图书全部分类
+          </div>
+
+          <el-tree
+              :data="categoryData"
+              :props="defaultProps"
+              @node-click="handleNodeClick"
+              highlight-current
+              node-key="id"
+              default-expand-all
+              class="custom-tree"
+          >
+            <template #default="{ node, data }">
+              <span
+                  class="custom-tree-node"
+                  :style="{
+                  color: categoryId === data.id ? '#409EFF' : '#606266',
+                  fontWeight: categoryId === data.id ? 'bold' : 'normal'
+                }"
+              >
+                <span v-if="data.id === null" style="margin-right: 6px; font-size: 16px;">🌟</span>
+                <span v-else-if="data.children && data.children.length > 0" style="margin-right: 6px; font-size: 16px;">📁</span>
+                <span v-else style="margin-right: 6px; font-size: 16px;">🏷️</span>
+                <span>{{ node.label }}</span>
+              </span>
+            </template>
+          </el-tree>
+        </el-card>
+      </el-col>
+      <el-col :span="20">
+
     <!-- 搜索-->
     <div style="margin: 10px 0;">
       <el-form inline="true" size="small">
@@ -64,14 +100,14 @@
       <el-table-column prop="publisher" label="出版社" />
       <el-table-column prop="createTime" label="出版时间" sortable/>
       <el-table-column prop="borrownum" label="总借阅次数" sortable/>
-      <el-table-column prop="status" label="状态">
-        <template v-slot="scope">
-          <el-tag v-if="scope.row.status == 0" type="warning">已借阅</el-tag>
-          <el-tag v-else type="success">未借阅</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column fixed="right" label="操作" >
-        <template v-slot="scope">
+        <el-table-column prop="status" label="状态">
+          <template v-slot="scope">
+            <el-tag v-if="scope.row.status == 0" type="warning">已借阅</el-tag>
+            <el-tag v-else type="success">未借阅</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="操作" width="170">
+          <template v-slot="scope">
           <el-button  size="mini" @click ="handleEdit(scope.row)" v-if="user.role == 1">修改</el-button>
           <el-popconfirm title="确认下架?" @confirm="handleDelete(scope.row.id)" v-if="user.role == 1">
             <template #reference>
@@ -79,7 +115,7 @@
             </template>
           </el-popconfirm>
           <el-button type="primary" size="mini" @click="handlelend(scope.row.id,scope.row.isbn,scope.row.name,scope.row.borrownum)" v-if="user.role == 2 && scope.row.status != 0">借阅</el-button>
-          <el-button type="warning" size="mini" @click="handleReserve(scope.row)" v-if="user.role == 2 && scope.row.status == 0">预约排队</el-button>
+          <el-button type="warning" size="mini" @click="handleReserve(scope.row)" v-if="user.role == 2 && scope.row.status == 0">预约</el-button>
           <el-popconfirm title="确认还书?" @confirm="handlereturn(scope.row.id,scope.row.isbn,scope.row.borrownum)" v-if="user.role == 2" :disabled="scope.row.status == 1">
             <template #reference>
               <el-button type="danger" size="mini" :disabled="(this.isbnArray.indexOf(scope.row.isbn)) == -1 ||scope.row.status == 1" >还书</el-button>
@@ -187,6 +223,8 @@
         </template>
       </el-dialog>
     </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -208,9 +246,23 @@ export default {
     let user = JSON.parse(sessionStorage.getItem("user"))
     this.phone= user.phone
     this.load()
+    this.loadTree();
   },
   name: 'Book',
   methods: {
+
+    // 加载分类树数据
+    loadTree() {
+      request.get("/category/tree").then(res => {
+        // 自动在最顶上加一个“全部”按钮，方便用户看所有书
+        this.categoryData = [{ id: null, name: '全部图书', children: [] }].concat(res.data || []);
+      });
+    },
+    // 树节点点击事件
+    handleNodeClick(data) {
+      this.categoryId = data.id; // 记录点的是哪个分类
+      this.load(); // 重新查右边的表格
+    },
   // (this.isbnArray.indexOf(scope.row.isbn)) == -1
     handleSelectionChange(val){
       this.ids = val.map(v =>v.id)
@@ -241,6 +293,7 @@ export default {
           search1: this.search1,
           search2: this.search2,
           search3: this.search3,
+          categoryId: this.categoryId,
         }
       }).then(res =>{
         console.log(res)
@@ -293,6 +346,7 @@ export default {
       this.search2 = ""
       this.search3 = ""
       this.load()
+      this.loadTree();
     },
 
     handleDelete(id){
@@ -508,6 +562,12 @@ export default {
   },
   data() {
     return {
+      categoryData: [],
+      defaultProps: {
+        children: 'children',
+        label: 'name'
+      },
+      categoryId: null,
       phone:'',
       flag:'',
       form: {},
@@ -533,3 +593,53 @@ export default {
   },
 }
 </script>
+<style scoped>
+/* 保证树控件占满宽度 */
+.custom-tree {
+  width: 100%;
+}
+
+/* 节点容器布局 */
+.custom-tree-node {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  width: 100%;
+}
+
+/* 🚀 核心修复：强行固定图标的宽度！解决图标大小不一导致的文字对不齐 */
+.custom-tree-node > span:first-child {
+  display: inline-block;
+  width: 24px;         /* 强制所有图标占位一模一样宽 */
+  text-align: center;  /* 图标在自己的格子里居中 */
+  margin-right: 4px;   /* 和文字的距离 */
+}
+
+/* 调整完美的行高和圆角 */
+:deep(.el-tree-node__content) {
+  height: 40px !important;
+  border-radius: 6px;
+  margin: 2px 0; /* 只保留上下间距，左右贴边，保证背景条横平竖直 */
+}
+
+/* 悬浮时的背景色 */
+:deep(.el-tree-node__content:hover) {
+  background-color: #f5f7fa !important;
+}
+
+/* 选中时的背景色 */
+:deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background-color: #ecf5ff !important;
+}
+
+/* 选中时的文字变蓝 + 加粗 */
+:deep(.el-tree-node.is-current > .el-tree-node__content .custom-tree-node) {
+  color: #409EFF !important;
+  font-weight: bold !important;
+}
+
+/* 让原生的小三角箭头变灰，不抢视觉重心 */
+:deep(.el-tree-node__expand-icon) {
+  color: #909399;
+}
+</style>

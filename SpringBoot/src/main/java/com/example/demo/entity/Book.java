@@ -27,6 +27,7 @@ public class Book {
     private String status;
     /** 新增字段：对应数据库的 rfid_code */
     private String rfidCode;
+    private Integer categoryId;
 
 
 }

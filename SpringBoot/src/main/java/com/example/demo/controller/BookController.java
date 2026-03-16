@@ -85,7 +85,8 @@ public class BookController {
                               @RequestParam(defaultValue = "10") Integer pageSize,
                               @RequestParam(defaultValue = "") String search1,
                               @RequestParam(defaultValue = "") String search2,
-                              @RequestParam(defaultValue = "") String search3){
+                              @RequestParam(defaultValue = "") String search3,
+                              @RequestParam(required = false) Integer categoryId) { // 💡 新增：接收前端传来的分类ID
         LambdaQueryWrapper<Book> wrappers = Wrappers.lambdaQuery();
         if(StringUtils.isNotBlank(search1)){
             wrappers.like(Book::getIsbn,search1);
@@ -96,8 +97,13 @@ public class BookController {
         if(StringUtils.isNotBlank(search3)){
             wrappers.like(Book::getAuthor,search3);
         }
+        // 💡 新增：如果前端传了分类ID，就去数据库里查这个分类下的书
+        if(categoryId != null){
+            wrappers.eq(Book::getCategoryId, categoryId);
+        }
+
         wrappers.orderByDesc(Book::getBorrownum);    //按借阅次数排序
-        Page<Book> BookPage =BookMapper.selectPage(new Page<>(pageNum,pageSize), wrappers);
+        Page<Book> BookPage = BookMapper.selectPage(new Page<>(pageNum,pageSize), wrappers);
         return Result.success(BookPage);
     }
 }

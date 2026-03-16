@@ -3,7 +3,7 @@
 
 
   <el-menu
-      style="width: 200px; min-height: calc(100vh - 50px);"
+      style="width: 200px;min-height: 102vh;";
       :default-active="path"
       class="el-menu-vertical-demo"
       @open="handleOpen"
