@@ -78,7 +78,8 @@
               <el-button type="danger" size="mini" >下架</el-button>
             </template>
           </el-popconfirm>
-          <el-button  size="mini" @click ="handlelend(scope.row.id,scope.row.isbn,scope.row.name,scope.row.borrownum)" v-if="user.role == 2" :disabled="scope.row.status == 0">借阅</el-button>
+          <el-button type="primary" size="mini" @click="handlelend(scope.row.id,scope.row.isbn,scope.row.name,scope.row.borrownum)" v-if="user.role == 2 && scope.row.status != 0">借阅</el-button>
+          <el-button type="warning" size="mini" @click="handleReserve(scope.row)" v-if="user.role == 2 && scope.row.status == 0">预约排队</el-button>
           <el-popconfirm title="确认还书?" @confirm="handlereturn(scope.row.id,scope.row.isbn,scope.row.borrownum)" v-if="user.role == 2" :disabled="scope.row.status == 1">
             <template #reference>
               <el-button type="danger" size="mini" :disabled="(this.isbnArray.indexOf(scope.row.isbn)) == -1 ||scope.row.status == 1" >还书</el-button>
@@ -346,6 +347,31 @@ export default {
       //
       })
     },
+
+    // 👇👇 这是新加的预约排队方法 👇👇
+    handleReserve(row) {
+      if (!this.user || !this.user.id) {
+        ElMessage.error("请先登录！");
+        return;
+      }
+
+      let reserveData = {
+        userId: this.user.id,
+        bookId: row.id
+      };
+
+      // 调后端的预约接口
+      request.post('/reserve/add', reserveData).then(res => {
+        if (res.code === 0 || res.code === '0') {
+          ElMessage.success(res.msg || "预约排队成功！图书归还后将邮件通知您。");
+          this.load(); // 刷新列表
+        } else {
+          ElMessage.error(res.msg || "预约失败");
+        }
+      });
+    },
+    // 👆👆 预约排队方法结束 👆👆
+
     handlelend(id,isbn,name,bn){
 
       if (this.phone == null){
