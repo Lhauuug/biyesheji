@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.example.demo.annotation.AutoLog;
 import com.example.demo.commom.Result;
 import com.example.demo.entity.Book;
 import com.example.demo.entity.BookWithUser;
+import com.example.demo.exception.CustomException;
 import com.example.demo.mapper.BookMapper;
 import com.example.demo.mapper.BookWithUserMapper;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +82,7 @@ public class BookController {
         BookMapper.deleteById(id);
         return Result.success();
     }
+    @AutoLog("查询图书列表")
     @GetMapping
     public Result<?> findPage(@RequestParam(defaultValue = "1") Integer pageNum,
                               @RequestParam(defaultValue = "10") Integer pageSize,

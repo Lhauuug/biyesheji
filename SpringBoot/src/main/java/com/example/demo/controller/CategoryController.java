@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.commom.Result;
 import com.example.demo.entity.Category;
 import com.example.demo.mapper.CategoryMapper;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +22,7 @@ public class CategoryController {
     /**
      * 核心接口：获取分类树
      */
+    @Cacheable(value = "categoryTree", key = "'treeData'")
     @GetMapping("/tree")
     public Result<?> getTree() {
         // 1. 查出数据库里所有的分类数据 (只查一次库，性能最高)
