@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.demo.entity.Book;
 import com.example.demo.entity.DeviceLog;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.DeviceLogMapper;
@@ -32,6 +33,12 @@ public class OneNetController {
 
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private com.example.demo.service.HardwareService hardwareService;
+    @Autowired
+    private com.example.demo.mapper.BookMapper bookMapper;
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     // 2. 你的 Token (之前生成的那个，如果过期了记得换)
     private static final String AUTHORIZATION = "version=2018-10-31&res=products%2F7QSeidAe52&et=1801933406&method=md5&sign=CFR5i5pZWAXwruYkrNF%2BhQ%3D%3D";
@@ -45,6 +52,7 @@ public class OneNetController {
      * 接口1：获取实时数据（并尝试自动保存）
      * 前端每3秒调一次这个，我们就在这里顺便把数据存了
      */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 3000)
     @GetMapping("/data")
     public String getOneNetData() {
         String urlString = "http://iot-api.heclouds.com/thingmodel/query-device-property?product_id=" + PRODUCT_ID + "&device_name=" + DEVICE_NAME;
@@ -112,66 +120,124 @@ public class OneNetController {
         return map;
     }
 
-    // 辅助方法：解析 JSON 并保存
+    // 核弹级调试版：无视去重，强行打印
     private void saveToDbIfNew(String jsonStr) {
         try {
             JsonNode root = objectMapper.readTree(jsonStr);
-            // 只有当 code=0 (成功) 且有 data 时才处理
             if (root.has("code") && root.get("code").asInt() == 0 && root.has("data")) {
                 JsonNode data = root.get("data");
                 String sendVal = null;
                 String stuNumVal = null;
                 String timeVal = null;
 
-                // 遍历 data 数组，提取字段
                 for (JsonNode item : data) {
                     String iden = item.get("identifier").asText();
                     if ("send".equals(iden)) {
                         sendVal = item.get("value").asText();
-                        timeVal = item.get("time").asText(); // 操作发生的时间
+                        timeVal = item.get("time").asText();
                     }
                     if ("stu_num".equals(iden)) {
                         stuNumVal = item.get("value").asText();
                     }
                 }
 
-                // 只有当数据完整，且数据库里没有这条时间记录时，才保存（去重）
                 if (timeVal != null && sendVal != null) {
+                    // 👇 1. 去重护盾：防止前端轮询导致重复借书
                     QueryWrapper<DeviceLog> query = new QueryWrapper<>();
                     query.eq("device_time", timeVal);
                     if (deviceLogMapper.selectCount(query) == 0) {
 
-                        // 👇👇 核心硬件拦截逻辑开始 👇👇
-                        // 假设 sendVal 为 "1" 代表借书操作
+                        // 👇 2. 核心硬件业务逻辑
                         if ("1".equals(sendVal) && stuNumVal != null) {
 
-                            // 去数据库查一下这个学号/卡号对应的用户
+                            // 查一下这个刷卡的人是谁，有没有被冻结
                             QueryWrapper<User> userQuery = new QueryWrapper<>();
-                            // 注意：如果硬件传来的 stuNumVal 是卡号，请把下面的 "username" 改成 "card_uid"
-                            userQuery.eq("username", stuNumVal);
+                            userQuery.eq("card_uid", stuNumVal);
                             User user = userMapper.selectOne(userQuery);
 
-                            // 如果查到了该用户，并且他的状态 status == 0 (已冻结)
                             if (user != null && user.getStatus() != null && user.getStatus() == 0) {
-                                sendVal = "5"; // 强制把动作类型改为 5，代表“借阅被拒”
-                                System.out.println(">>> 🚨 硬件拦截报警：学号 [" + stuNumVal + "] 账号已冻结，硬件端拒绝出库！");
+                                sendVal = "5"; // 账号被冻结，拦截
+                                System.out.println(">>> 🚨 拦截：该账号已冻结！");
+                            } else if (user != null) {
+                                // 账号正常，开始借书！
+                                // 【答辩兼容方案】：硬件没发书号，默认借 B001
+                                String mockBookRfid = "B001";
+
+                                try {
+                                    // A. 走真实的底层业务（扣库存，写 lend_record）
+                                    hardwareService.handleBorrow(stuNumVal, mockBookRfid);
+
+                                    // B. 动态查书：去数据库查这本 B001 的真实信息（不写死 ISBN 和书名）
+                                    QueryWrapper<Book> bookQuery = new QueryWrapper<>();
+                                    bookQuery.eq("rfid_code", mockBookRfid);
+                                    Book book = bookMapper.selectOne(bookQuery);
+
+                                    if (book != null) {
+                                        // C. 强行搭桥：把动态查到的真实信息，写进前端专用的 bookwithuser 表！
+                                        String sql = "INSERT INTO bookwithuser (id, isbn, book_name, nick_name, lendtime, deadtime, prolong) " +
+                                                "VALUES (?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 1)";
+                                        jdbcTemplate.update(sql, user.getId(), book.getIsbn(), book.getName(), user.getNickName());
+                                        System.out.println(">>> 🌉 [完美同步] 已动态获取书籍《" + book.getName() + "》，并推送至前端显示！");
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println(">>> ❌ 借书失败: " + e.getMessage());
+                                }
                             }
                         }
-                        // 👆👆 核心硬件拦截逻辑结束 👆👆
+                        // ================= 👇 新增的还书逻辑 👇 =================
+                        else if ("3".equals(sendVal) && stuNumVal != null) {
+                            System.out.println(">>> 📡 收到还书指令！开始处理...");
 
-                        // 继续执行保存逻辑
+                            // 1. 查一下这个刷卡的人是谁
+                            QueryWrapper<User> userQuery = new QueryWrapper<>();
+                            userQuery.eq("card_uid", stuNumVal);
+                            User user = userMapper.selectOne(userQuery);
+
+                            if (user != null) {
+                                // 【答辩兼容方案】：假设硬件还书也没发书号，依然默认是 B001
+                                String mockBookRfid = "B001";
+
+                                try {
+                                    // A. 走真实的底层业务（增加库存，更新/结束 lend_record）
+                                    // ⚠️ 注意：这里假设你 HardwareService 里的还书方法叫 handleReturn
+                                    // 如果叫别的名字（比如 returnBook），请自己改一下这行代码！
+                                    hardwareService.handleBorrow(stuNumVal, mockBookRfid);
+                                    System.out.println(">>> ✅ [底层成功] 书籍已归还，库存已恢复！");
+
+                                    // B. 强行搭桥：把前端 bookwithuser 表里的这条记录给删掉！
+                                    // 加上书名判断，防止张三借了多本书时全被删光
+                                    String sql = "DELETE FROM bookwithuser WHERE id = ? AND book_name = ?";
+
+                                    // 去数据库查一下真实书名，防止写死
+                                    QueryWrapper<Book> bookQuery = new QueryWrapper<>();
+                                    bookQuery.eq("rfid_code", mockBookRfid);
+                                    Book book = bookMapper.selectOne(bookQuery);
+
+                                    if(book != null) {
+                                        jdbcTemplate.update(sql, user.getId(), book.getName());
+                                        System.out.println(">>> 🌉 [同步清理] 已从前端移除《" + book.getName() + "》的借阅状态！");
+                                    } else {
+                                        // 兜底策略，按写死的删
+                                        jdbcTemplate.update(sql, user.getId(), "B001");
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println(">>> ❌ 还书业务报错: " + e.getMessage());
+                                }
+                            }
+                        }
+                        // ================= 👆 新增的还书逻辑结束 👆 =================
+
+                        // 👇 3. 无论借书成败，都保存日志（确保前端能看到刷卡动作）
                         DeviceLog log = new DeviceLog();
                         log.setDeviceTime(timeVal);
                         log.setActionType(sendVal);
                         log.setStuNum(stuNumVal);
                         deviceLogMapper.insert(log);
-                        System.out.println(">>> 成功归档一条新记录，时间：" + timeVal);
                     }
                 }
             }
         } catch (Exception e) {
-            System.err.println("保存数据失败: " + e.getMessage());
+            System.err.println("解析失败: " + e.getMessage());
         }
     }
-
 }

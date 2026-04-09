@@ -1,14 +1,12 @@
 <template>
   <div class="home" style ="padding: 10px">
-<!-- 按钮-->
-<!-- 搜索-->
     <div style="margin: 10px 0;">
       <el-form inline="true" size="small">
         <el-form-item label="读者编号" >
-      <el-input v-model="search1" placeholder="请输入读者编号"  clearable>
-        <template #prefix><el-icon class="el-input__icon"><search/></el-icon></template>
-      </el-input>
-          </el-form-item >
+          <el-input v-model="search1" placeholder="请输入读者编号"  clearable>
+            <template #prefix><el-icon class="el-input__icon"><search/></el-icon></template>
+          </el-input>
+        </el-form-item >
         <el-form-item label="姓名" >
           <el-input v-model="search2" placeholder="请输入姓名"  clearable>
             <template #prefix><el-icon class="el-input__icon"><search /></el-icon></template>
@@ -25,14 +23,13 @@
           </el-input>
         </el-form-item >
         <el-form-item>
-      <el-button type="primary" style="margin-left: 1%" @click="load" size="mini">查询</el-button>
+          <el-button type="primary" style="margin-left: 1%" @click="load" size="mini">查询</el-button>
         </el-form-item>
         <el-form-item>
           <el-button size="mini"  type="danger" @click="clear">重置</el-button>
         </el-form-item>
       </el-form>
     </div>
-    <!-- 按钮-->
     <div style="margin: 10px 0;" >
       <el-popconfirm title="确认禁用?" @confirm="deleteBatch" v-if="user.role == 1">
         <template #reference>
@@ -40,7 +37,6 @@
         </template>
       </el-popconfirm>
     </div>
-<!-- 数据字段-->
     <el-table :data="tableData" stripe border="true"  @selection-change="handleSelectionChange" >
       <el-table-column v-if="user.role ==1 "
                        type="selection"
@@ -52,19 +48,33 @@
       <el-table-column prop="phone" label="电话号码" />
       <el-table-column prop="sex" label="性别" />
       <el-table-column prop="address" label="地址" />
-      <el-table-column fixed="right" label="操作" >
+
+      <el-table-column prop="status" label="状态">
+        <template v-slot="scope">
+          <el-tag v-if="scope.row.status === 1 || scope.row.status == null" type="success">正常</el-tag>
+          <el-tag v-else type="danger">已禁用</el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column fixed="right" label="操作" width="300">
         <template v-slot="scope">
           <el-button  size="mini" @click ="handleEdit(scope.row)">审核/编辑</el-button>
-          <el-button  size="mini" @click ="handleAlow(scope.row.id)" style="margin-left: 10px" type="success">允许借阅</el-button>
-          <el-popconfirm title="确认禁用?" @confirm="handleDelete(scope.row.id)">
+          <el-button  size="mini" @click ="handleAlow(scope.row.id)" style="margin-left: 10px" type="success" :disabled="scope.row.status === 0">允许借阅</el-button>
+
+          <el-popconfirm v-if="scope.row.status === 1 || scope.row.status == null" title="确认禁用此账号?" @confirm="changeStatus(scope.row.id, 0)">
             <template #reference>
-              <el-button type="danger" size="mini" style="margin-top: 10px; margin-left: 50px">账号禁用</el-button>
+              <el-button type="danger" size="mini" style="margin-top: 10px; margin-left: 10px">账号禁用</el-button>
+            </template>
+          </el-popconfirm>
+
+          <el-popconfirm v-else title="确认解禁此账号?" @confirm="changeStatus(scope.row.id, 1)">
+            <template #reference>
+              <el-button type="warning" size="mini" style="margin-top: 10px; margin-left: 10px">账号解禁</el-button>
             </template>
           </el-popconfirm>
         </template>
       </el-table-column>
     </el-table>
-<!--    分页-->
     <div style="margin: 10px 0">
       <el-pagination
           v-model:currentPage="currentPage"
@@ -110,7 +120,6 @@
 </template>
 
 <script>
-// @ is an alias to /src
 import request from "../utils/request";
 import {ElMessage} from "element-plus";
 import router from "@/router";
@@ -136,7 +145,6 @@ export default {
         ElMessage.warning("请选择数据！")
         return
       }
-      //  一个小优化，直接发送这个数组，而不是一个一个的提交删除
       request.post("/user/deleteBatch",this.ids).then(res =>{
         if(res.code === '0'){
           ElMessage.success("批量删除成功")
@@ -182,6 +190,21 @@ export default {
       })
     },
 
+    // 新增的更改状态方法
+    changeStatus(id, status) {
+      request.put("/user/status/" + id + "/" + status).then(res => {
+        if(res.code == 0 || res.code === '0'){
+          if(status === 0){
+            ElMessage.success("账号已禁用")
+          } else {
+            ElMessage.success("账号已解禁")
+          }
+          this.load()
+        } else {
+          ElMessage.error(res.msg)
+        }
+      })
+    },
 
     add(){
       this.dialogVisible= true
@@ -200,8 +223,7 @@ export default {
           else {
             ElMessage.error(res.msg)
           }
-
-          this.load() //不知道为啥，更新必须要放在这里面
+          this.load()
           this.dialogVisible = false
         })
       }
@@ -218,7 +240,6 @@ export default {
           this.dialogVisible = false
         })
       }
-
     },
 
     handleAlow(id){
@@ -257,9 +278,7 @@ export default {
       total:10,
       currentPage:1,
       pageSize: 10,
-      tableData: [
-
-      ],
+      tableData: [],
       user:{},
       ids:[],
     }

@@ -38,18 +38,10 @@
           </div>
           <div class="clock-box">
             <div id="myTimer" class="real-time"></div>
-            <div class="date-tips">图书馆正常开放中</div>
+
           </div>
         </el-card>
 
-        <el-card shadow="hover" style="margin-top: 20px;">
-          <div style="font-size: 14px; color: #666;">
-            <p>🎓 <b>毕设项目状态：</b></p>
-            <p>✅ 硬件连接正常</p>
-            <p>✅ 邮件服务在线</p>
-            <p>✅ 数据库连接正常</p>
-          </div>
-        </el-card>
       </el-col>
     </el-row>
   </div>

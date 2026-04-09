@@ -130,6 +130,9 @@ public class UserController {
         if (user == null){
             return Result.error("-1","授权失败,用户信息错误");
         }
+        if (user.getStatus() != null && user.getStatus() == 0) {
+            return Result.error("-1", "操作失败：该账号已被禁用，无法授予借阅权限！");
+        }
         if(user.getAlow() == null){
             user.setAlow("1");
             userMapper.updateById(user);
@@ -185,6 +188,16 @@ public class UserController {
         if (user == null){
             return Result.error("-1","您没有管理员授予的借阅权!");
         }
+        return Result.success();
+    }
+
+    // 新增：更改用户状态（冻结/解禁）
+    @PutMapping("/status/{id}/{status}")
+    public Result<?> updateStatus(@PathVariable Integer id, @PathVariable Integer status){
+        User user = new User();
+        user.setId(id);
+        user.setStatus(status);
+        userMapper.updateById(user);
         return Result.success();
     }
 }
