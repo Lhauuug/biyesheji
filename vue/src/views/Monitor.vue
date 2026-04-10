@@ -148,11 +148,23 @@ export default {
     },
     // 2. 获取历史列表 (新接口)
     fetchHistory() {
-      axios.get('http://localhost:9090/onenet/history')
-          .then(res => {
-            this.historyList = res.data; // 后端直接返回 List<DeviceLog>
-          })
-          .catch(e => console.error("历史记录获取失败", e));
+      // 1. 从缓存中获取用户信息（通常登录后会存一个名为 "user" 的字符串）
+      const userJson = sessionStorage.getItem("user") || localStorage.getItem("user");
+
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        const stuNum = user.cardUid; // 获取你提到的 cardUid
+
+        // 2. 将 stu_num 作为参数拼接在 URL 后面
+        axios.get(`http://localhost:9090/onenet/history?stu_num=${stuNum}`)
+            .then(res => {
+              // 后端返回的将是该学号对应的 List<DeviceLog>
+              this.historyList = res.data;
+            })
+            .catch(e => console.error("个人历史记录获取失败", e));
+      } else {
+        console.error("未找到用户信息，请重新登录");
+      }
     },
     // 辅助：把数字转中文 (给表格用)
     getActionText(val) {
