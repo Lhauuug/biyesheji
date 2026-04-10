@@ -59,7 +59,7 @@
       <el-table-column fixed="right" label="操作" width="300">
         <template v-slot="scope">
           <el-button  size="mini" @click ="handleEdit(scope.row)">审核/编辑</el-button>
-          <el-button  size="mini" @click ="handleAlow(scope.row.id)" style="margin-left: 10px" type="success" :disabled="scope.row.status === 0">允许借阅</el-button>
+          <el-button  size="mini" @click ="handleAlow(scope.row.id)" style="margin-left: 10px" type="success" :disabled="scope.row.status === 0" >允许借阅</el-button>
 
           <el-popconfirm v-if="scope.row.status === 1 || scope.row.status == null" title="确认禁用此账号?" @confirm="changeStatus(scope.row.id, 0)">
             <template #reference>
@@ -191,10 +191,11 @@ export default {
     },
 
     // 新增的更改状态方法
-    changeStatus(id, status) {
+// 新增的更改状态方法
+changeStatus(id, status) {
       request.put("/user/status/" + id + "/" + status).then(res => {
-        if(res.code == 0 || res.code === '0'){
-          if(status === 0){
+        if (res.code == 0 || res.code === '0') {
+          if (status === 0) {
             ElMessage.success("账号已禁用")
           } else {
             ElMessage.success("账号已解禁")
@@ -204,7 +205,7 @@ export default {
           ElMessage.error(res.msg)
         }
       })
-    },
+    },  // 🚨 注意最后这个逗号，它是隔开下面 add() 方法的关键！
 
     add(){
       this.dialogVisible= true

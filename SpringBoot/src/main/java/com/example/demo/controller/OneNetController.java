@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -164,7 +165,7 @@ public class OneNetController {
                                             // 调你现有的底层借书方法
                                             hardwareService.handleBorrow(stuNumVal, targetRfid);
 
-                                            // 同步到前端表 bookwithuser
+                                            // 同步到前端表 bookwithuser (首页大屏显示)
                                             BookWithUser bu = new BookWithUser();
                                             bu.setId(user.getId());
                                             bu.setIsbn(book.getIsbn());
@@ -177,23 +178,63 @@ public class OneNetController {
                                             cal.add(Calendar.DAY_OF_YEAR, 30);
                                             bu.setDeadtime(cal.getTime());
                                             bu.setProlong(1);
-
                                             bookwithUserMapper.insert(bu);
+
+                                            // 👇👇 新增：往 lend_record 表里写一条真正的借阅历史 👇👇
+                                            LendRecord lendRecord = new LendRecord();
+                                            lendRecord.setReaderId(Long.valueOf(user.getId()));
+                                            lendRecord.setIsbn(book.getIsbn());
+                                            lendRecord.setBookname(book.getName());
+                                            lendRecord.setLendTime(now);
+                                            lendRecord.setStatus("0"); // 0 代表正在借阅
+                                            lendRecord.setBorrownum((book.getBorrownum() == null ? 0 : book.getBorrownum()) + 1);
+                                            lendRecordMapper.insert(lendRecord);
+                                            // 👆👆 新增结束 👆👆
+
+                                            // 重点：将书的状态改为已借阅 (0)
+                                            book.setStatus("0");
+                                            book.setBorrownum((book.getBorrownum() == null ? 0 : book.getBorrownum()) + 1);
+                                            bookMapper.updateById(book);
+
                                             System.out.println(">>> ✅ 借书同步成功：" + book.getName());
                                         } catch (Exception e) {
                                             System.err.println(">>> ❌ 借书拦截：" + e.getMessage());
                                         }
                                     } else {
-                                        // ============= 【还书业务：手动 MyBatis 实现】 =============
+                                        // ============= 【还书业务】 =============
                                         try {
-                                            hardwareService.handleBorrow(stuNumVal, book.getName());
+                                            // 1. 从前端展示表移除借阅记录 (首页大屏消失)
                                             bookwithUserMapper.delete(new QueryWrapper<BookWithUser>()
                                                     .eq("id", user.getId())
                                                     .eq("book_name", book.getName()));
+
+                                            // 👇👇 新增：把 lend_record 表里的历史记录标记为已还 👇👇
+                                            LendRecord lendRecord = lendRecordMapper.selectOne(new QueryWrapper<LendRecord>()
+                                                    .eq("reader_id", user.getId())
+                                                    .eq("isbn", book.getIsbn())
+                                                    .eq("status", "0") // 找到那条还没还的记录
+                                                    .last("LIMIT 1"));
+
+                                            if (lendRecord != null) {
+                                                lendRecord.setStatus("1"); // 1 代表已归还
+                                                lendRecord.setReturnTime(new Date());
+                                                lendRecordMapper.updateById(lendRecord);
+                                            }
+                                            // 👆👆 新增结束 👆👆
+
+                                            // 2. 重点：将书的状态恢复为未借阅 (1)
+                                            book.setStatus("1");
+                                            bookMapper.updateById(book);
+
+                                            System.out.println(">>> ✅ 还书成功：" + book.getName());
                                         } catch (Exception e) {
+                                            e.printStackTrace();
                                             System.err.println(">>> ❌ 还书失败：" + e.getMessage());
                                         }
                                     }
+                                } else {
+                                    // 预防空指针：如果数据库没找到这本书，给出明确提示
+                                    System.err.println(">>> ❌ 致命错误：在 book 表里找不到 rfid_code 为 [" + targetRfid + "] 的书！请检查数据库！");
                                 }
                             }
                         }

@@ -14,11 +14,11 @@
             <template #prefix><el-icon class="el-input__icon"><search /></el-icon></template>
           </el-input>
         </el-form-item >
-        <el-form-item label="读者编号" >
-          <el-input v-model="search3" placeholder="请输入读者编号"  clearable>
-            <template #prefix><el-icon class="el-input__icon"><search /></el-icon></template>
+          <el-form-item label="读者编号" v-if="user.role == 1">
+            <el-input v-model="search3" placeholder="请输入读者编号"  clearable>
           </el-input>
-        </el-form-item >
+          </el-form-item>
+          
         <el-form-item>
           <el-button type="primary" style="margin-left: 1%" @click="load" size="mini">查询</el-button>
         </el-form-item>
@@ -128,12 +128,15 @@ export default defineComponent({
 
   created(){
     let userJson = sessionStorage.getItem("user")
-    if(!userJson)
-    {
+    if(!userJson) {
       router.push("/login")
+      return 
     }
+    
+    // 👇 只保留一份这个逻辑即可 👇
+    let userStr = sessionStorage.getItem("user") || "{}"
+    this.user = JSON.parse(userStr)
     this.load()
-    let userStr = sessionStorage.getItem("user") ||"{}"
     this.user = JSON.parse(userStr)
   },
   name: 'LendRecord',
@@ -157,13 +160,21 @@ export default defineComponent({
       })
     },
     load(){
+      // 1. 先拿到搜索框里的值
+      let rId = this.search3; 
+
+      // 2. 【核心逻辑】如果当前登录的不是管理员(role != 1)，强制把查询 ID 换成自己的
+      if (this.user.role !== 1) {
+          rId = this.user.id;
+      }
+      
       request.get("/LendRecord",{
         params:{
           pageNum: this.currentPage,
           pageSize: this.pageSize,
           search1: this.search1,
           search2: this.search2,
-          search3: this.search3
+          search3: rId
         }
       }).then(res =>{
         console.log(res)

@@ -67,7 +67,7 @@ public class LendRecordController {
             wrappers.like(LendRecord::getBookname,search2);
         }
         if(StringUtils.isNotBlank(search3)){
-            wrappers.like(LendRecord::getReaderId,search3);
+            wrappers.eq(LendRecord::getReaderId,search3);
         }
         wrappers.orderByDesc(LendRecord::getLendTime);    //按照借阅时间最新在前排序
         Page<LendRecord> LendRecordPage =LendRecordMapper.selectPage(new Page<>(pageNum,pageSize), wrappers);

@@ -64,6 +64,11 @@ public class UserController {
         {
             return Result.error("-1","用户名或密码错误");
         }
+        // 👇👇 就是在这里插入这段拦截代码 👇👇
+        if (res.getStatus() != null && res.getStatus().equals(0)) {
+            return Result.error("-1", "您的账号已被管理员禁用，禁止登录！");
+        }
+        // 👆👆 拦截代码结束 👆👆
         String token = TokenUtils.genToken(res);
         res.setToken(token);
         LoginUser.addVisitCount();
